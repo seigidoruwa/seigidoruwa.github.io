@@ -3,294 +3,194 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>XLSX → CSV Parser</title>
+  <title>XLSX Parser</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      font-family: 'Google Sans', 'Segoe UI', system-ui, sans-serif;
+      background: #fff;
+      color: #202124;
+      padding: 12px;
+      font-size: 13px;
     }
-
-    .card {
-      background: #1a1d27;
-      border: 1px solid #2d3148;
-      border-radius: 16px;
-      padding: 40px;
-      width: 100%;
-      max-width: 560px;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-
-    .logo-icon {
-      width: 40px; height: 40px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-    }
-
-    .logo-text { font-size: 18px; font-weight: 700; color: #f1f5f9; }
-    .logo-sub  { font-size: 12px; color: #64748b; margin-top: 1px; }
-
-    h1 {
-      font-size: 22px; font-weight: 700;
-      color: #f1f5f9; margin-bottom: 8px;
-    }
-
-    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 28px; }
 
     /* Drop zone */
     .drop-zone {
-      border: 2px dashed #2d3148;
-      border-radius: 12px;
-      padding: 40px 24px;
+      border: 1.5px dashed #dadce0;
+      border-radius: 8px;
+      padding: 24px 16px;
       text-align: center;
       cursor: pointer;
-      transition: all .2s;
       position: relative;
+      transition: border-color .15s, background .15s;
     }
 
-    .drop-zone:hover, .drop-zone.drag-over {
-      border-color: #6366f1;
-      background: rgba(99,102,241,.06);
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: #1a73e8;
+      background: #f0f4ff;
+    }
+
+    .drop-zone.has-file {
+      border-style: solid;
+      border-color: #34a853;
+      background: #f6fbf8;
     }
 
     .drop-zone input[type="file"] {
       position: absolute; inset: 0;
-      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
     }
 
-    .drop-icon { font-size: 36px; margin-bottom: 12px; }
-
-    .drop-label {
-      font-size: 15px; font-weight: 600;
-      color: #cbd5e1; margin-bottom: 4px;
-    }
-
-    .drop-hint { font-size: 13px; color: #475569; }
+    .drop-icon { font-size: 24px; line-height: 1; margin-bottom: 6px; }
+    .drop-label { font-size: 13px; font-weight: 500; color: #3c4043; }
+    .drop-hint  { font-size: 11px; color: #80868b; margin-top: 2px; }
 
     /* Sheet selector */
-    .sheet-select-wrap {
+    .sheet-row {
       display: none;
-      margin-top: 20px;
+      margin-top: 8px;
+      align-items: center;
+      gap: 8px;
     }
 
-    .sheet-select-wrap label {
-      display: block;
-      font-size: 13px; color: #94a3b8;
-      margin-bottom: 6px;
-    }
+    .sheet-row label { color: #5f6368; white-space: nowrap; font-size: 12px; }
 
     select {
-      width: 100%;
-      background: #0f1117;
-      border: 1px solid #2d3148;
-      border-radius: 8px;
-      color: #e2e8f0;
-      padding: 10px 14px;
-      font-size: 14px;
+      flex: 1;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      background: #fff;
+      color: #202124;
       outline: none;
       cursor: pointer;
     }
 
-    select:focus { border-color: #6366f1; }
+    select:focus { border-color: #1a73e8; }
 
     /* Preview */
-    .preview-wrap {
-      display: none;
-      margin-top: 20px;
-    }
+    .preview-wrap { display: none; margin-top: 10px; }
 
-    .preview-header {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .preview-label { font-size: 13px; color: #94a3b8; }
-    .preview-badge {
+    .preview-meta {
       font-size: 11px;
-      background: rgba(99,102,241,.2);
-      color: #818cf8;
-      padding: 3px 10px;
-      border-radius: 20px;
+      color: #80868b;
+      margin-bottom: 4px;
     }
 
-    .preview-table-wrap {
+    .preview-meta b { color: #3c4043; font-weight: 600; }
+
+    .table-wrap {
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
       overflow: auto;
-      max-height: 200px;
-      border: 1px solid #2d3148;
-      border-radius: 8px;
+      max-height: 160px;
     }
 
-    table {
-      border-collapse: collapse;
-      font-size: 12px;
-      width: 100%;
-    }
+    table { border-collapse: collapse; font-size: 11px; width: 100%; }
 
     th {
-      background: #0f1117;
-      color: #6366f1;
-      padding: 8px 12px;
+      background: #f8f9fa;
+      color: #1a73e8;
+      font-weight: 600;
+      padding: 5px 10px;
       text-align: left;
       white-space: nowrap;
-      border-bottom: 1px solid #2d3148;
+      border-bottom: 1px solid #e0e0e0;
       position: sticky; top: 0;
     }
 
     td {
-      padding: 7px 12px;
-      color: #cbd5e1;
-      border-bottom: 1px solid #1e2133;
+      padding: 4px 10px;
+      color: #3c4043;
+      border-bottom: 1px solid #f1f3f4;
       white-space: nowrap;
-      max-width: 160px;
+      max-width: 140px;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255,255,255,.03); }
+    tr:hover td { background: #f8f9fa; }
 
     /* Actions */
-    .actions { display: flex; gap: 10px; margin-top: 20px; }
-
-    button {
-      flex: 1;
-      border: none;
-      border-radius: 10px;
-      padding: 13px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .2s;
-    }
+    .actions { display: flex; gap: 6px; margin-top: 10px; }
 
     .btn-send {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      flex: 1;
+      background: #1a73e8;
       color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
     }
 
-    .btn-send:hover { opacity: .9; transform: translateY(-1px); }
-    .btn-send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn-send:hover:not(:disabled) { background: #1557b0; }
+    .btn-send:disabled { background: #dadce0; color: #80868b; cursor: not-allowed; }
 
     .btn-reset {
-      background: #1e2133;
-      color: #94a3b8;
-      border: 1px solid #2d3148;
-      flex: 0 0 auto;
-      padding: 13px 18px;
+      background: none;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 13px;
+      color: #5f6368;
+      cursor: pointer;
+      transition: background .15s;
     }
 
-    .btn-reset:hover { background: #252840; color: #e2e8f0; }
+    .btn-reset:hover { background: #f8f9fa; }
 
     /* Status */
     .status {
       display: none;
-      margin-top: 16px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .status.info    { background: rgba(99,102,241,.15); color: #818cf8; border: 1px solid rgba(99,102,241,.3); }
-    .status.success { background: rgba(34,197,94,.12);  color: #4ade80;  border: 1px solid rgba(34,197,94,.25); }
-    .status.error   { background: rgba(239,68,68,.12);  color: #f87171;  border: 1px solid rgba(239,68,68,.25); }
-
-    .flow-arrow {
-      display: flex; align-items: center; justify-content: center;
-      gap: 6px; margin: 22px 0 0;
-      font-size: 12px; color: #334155;
-      flex-wrap: wrap;
-    }
-
-    .flow-step {
-      background: #1e2133;
-      border: 1px solid #2d3148;
-      padding: 4px 10px;
+      margin-top: 8px;
+      padding: 7px 10px;
       border-radius: 6px;
-      color: #64748b;
-      font-size: 11px;
+      font-size: 12px;
+      line-height: 1.4;
     }
 
-    .flow-step.active { border-color: #6366f1; color: #818cf8; }
+    .status.info    { background: #e8f0fe; color: #1a73e8; }
+    .status.success { background: #e6f4ea; color: #137333; }
+    .status.error   { background: #fce8e6; color: #c5221f; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">
-    <div class="logo-icon">📊</div>
-    <div>
-      <div class="logo-text">XLSX → Sheets</div>
-      <div class="logo-sub">Внешний парсер через postMessage</div>
-    </div>
-  </div>
-
-  <h1>Загрузите XLSX файл</h1>
-  <p class="subtitle">Файл парсится прямо в браузере — никуда не отправляется.</p>
-
   <div class="drop-zone" id="dropZone">
     <input type="file" id="fileInput" accept=".xlsx,.xls,.ods,.csv" />
-    <div class="drop-icon">📂</div>
-    <div class="drop-label">Перетащите файл или нажмите</div>
+    <div class="drop-icon" id="dropIcon">📄</div>
+    <div class="drop-label" id="dropLabel">Перетащите файл или нажмите</div>
     <div class="drop-hint">.xlsx · .xls · .ods · .csv</div>
   </div>
 
-  <div class="sheet-select-wrap" id="sheetWrap">
-    <label>Лист</label>
+  <div class="sheet-row" id="sheetRow">
+    <label>Лист:</label>
     <select id="sheetSelect"></select>
   </div>
 
   <div class="preview-wrap" id="previewWrap">
-    <div class="preview-header">
-      <span class="preview-label">Предпросмотр (первые 5 строк)</span>
-      <span class="preview-badge" id="statsBadge">0 × 0</span>
-    </div>
-    <div class="preview-table-wrap">
+    <div class="preview-meta" id="previewMeta"></div>
+    <div class="table-wrap">
       <table id="previewTable"></table>
     </div>
   </div>
 
   <div class="actions">
-    <button class="btn-send" id="sendBtn" disabled>📤 Отправить в Sidebar</button>
-    <button class="btn-reset" id="resetBtn" title="Сбросить">✕</button>
+    <button class="btn-send" id="sendBtn" disabled>Отправить в таблицу</button>
+    <button class="btn-reset" id="resetBtn">Сбросить</button>
   </div>
 
   <div class="status" id="status"></div>
-
-  <div class="flow-arrow">
-    <span class="flow-step active" id="s1">XLSX</span>
-    <span>→</span>
-    <span class="flow-step" id="s2">SheetJS</span>
-    <span>→</span>
-    <span class="flow-step" id="s3">CSV</span>
-    <span>→</span>
-    <span class="flow-step" id="s4">postMessage</span>
-    <span>→</span>
-    <span class="flow-step" id="s5">Sidebar</span>
-    <span>→</span>
-    <span class="flow-step" id="s6">GAS</span>
-    <span>→</span>
-    <span class="flow-step" id="s7">Sheet ✓</span>
-  </div>
-</div>
 
 <script>
   let workbook = null;
@@ -299,20 +199,18 @@
 
   const fileInput   = document.getElementById('fileInput');
   const dropZone    = document.getElementById('dropZone');
-  const sheetWrap   = document.getElementById('sheetWrap');
+  const sheetRow    = document.getElementById('sheetRow');
   const sheetSelect = document.getElementById('sheetSelect');
   const previewWrap = document.getElementById('previewWrap');
   const sendBtn     = document.getElementById('sendBtn');
   const statusEl    = document.getElementById('status');
 
-  // --- Drag & Drop ---
   dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
+    if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
   });
 
   fileInput.addEventListener('change', () => {
@@ -321,60 +219,47 @@
 
   sheetSelect.addEventListener('change', () => renderSheet(sheetSelect.value));
 
-  // --- File parsing ---
   function processFile(file) {
-    showStatus('info', `⏳ Читаю «${file.name}»…`);
-    activateStep('s2');
-
+    showStatus('info', 'Читаю файл…');
     const reader = new FileReader();
     reader.onload = e => {
       try {
-        const data = new Uint8Array(e.target.result);
-        workbook = XLSX.read(data, { type: 'array', cellDates: true });
-
-        // Populate sheet selector
+        workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
         sheetSelect.innerHTML = '';
         workbook.SheetNames.forEach(name => {
-          const opt = document.createElement('option');
-          opt.value = opt.textContent = name;
-          sheetSelect.appendChild(opt);
+          const o = document.createElement('option');
+          o.value = o.textContent = name;
+          sheetSelect.appendChild(o);
         });
-
-        sheetWrap.style.display = workbook.SheetNames.length > 1 ? 'block' : 'none';
+        sheetRow.style.display = workbook.SheetNames.length > 1 ? 'flex' : 'none';
         renderSheet(workbook.SheetNames[0]);
+        dropZone.classList.add('has-file');
+        document.getElementById('dropIcon').textContent = '✅';
+        document.getElementById('dropLabel').textContent = file.name;
       } catch (err) {
-        showStatus('error', '❌ Не удалось прочитать файл: ' + err.message);
+        showStatus('error', 'Не удалось прочитать файл: ' + err.message);
       }
     };
     reader.readAsArrayBuffer(file);
   }
 
   function renderSheet(sheetName) {
-    const ws = workbook.Sheets[sheetName];
-
-    // Convert to array of arrays
+    const ws  = workbook.Sheets[sheetName];
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
     const rows = aoa.length;
     const cols = aoa.reduce((m, r) => Math.max(m, r.length), 0);
 
-    // Build CSV (RFC 4180)
-    currentCsv = XLSX.utils.sheet_to_csv(ws);
+    currentCsv  = XLSX.utils.sheet_to_csv(ws);
     currentMeta = { sheetName, rows, cols, fileName: fileInput.files[0]?.name || 'file' };
 
-    activateStep('s3');
+    document.getElementById('previewMeta').innerHTML =
+      `<b>${rows}</b> строк · <b>${cols}</b> столбцов · лист «${sheetName}»`;
 
-    // Stats badge
-    document.getElementById('statsBadge').textContent = `${rows} × ${cols}`;
-
-    // Preview table
     const table = document.getElementById('previewTable');
     table.innerHTML = '';
-
-    const preview = aoa.slice(0, 6);
-    preview.forEach((row, ri) => {
+    aoa.slice(0, 6).forEach((row, ri) => {
       const tr = document.createElement('tr');
-      row.slice(0, 10).forEach(cell => {
+      row.slice(0, 8).forEach(cell => {
         const el = document.createElement(ri === 0 ? 'th' : 'td');
         el.textContent = cell ?? '';
         tr.appendChild(el);
@@ -384,88 +269,63 @@
 
     previewWrap.style.display = 'block';
     sendBtn.disabled = false;
-    showStatus('success', `✅ Лист «${sheetName}»: ${rows} строк, ${cols} столбцов`);
+    hideStatus();
   }
 
-  // --- Send via postMessage ---
-  sendBtn.addEventListener('click', sendData);
-
-  function sendData() {
+  sendBtn.addEventListener('click', () => {
     if (!currentCsv) return;
-
     sendBtn.disabled = true;
-    activateStep('s4');
-    showStatus('info', '📡 Отправляю через postMessage в Sidebar…');
+    showStatus('info', 'Отправляю…');
 
-    const payload = {
-      type: 'XLSX_PARSER_CSV',
-      csv: currentCsv,
-      meta: currentMeta,
-      timestamp: Date.now()
-    };
+    const payload = { type: 'XLSX_PARSER_CSV', csv: currentCsv, meta: currentMeta, timestamp: Date.now() };
 
-    // postMessage to parent (Google Sheets Sidebar iframe)
     if (window.parent && window.parent !== window) {
       window.parent.postMessage(JSON.stringify(payload), '*');
     } else {
-      // Standalone mode: broadcast to opener or log
-      console.log('[XLSX Parser] postMessage payload:', payload);
+      console.log('[XLSX Parser]', payload);
     }
 
-    // Listen for confirmation
     window.addEventListener('message', function ack(e) {
       try {
         const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        if (msg.type === 'XLSX_PARSER_ACK') {
-          activateStep('s5');
-          if (msg.status === 'ok') {
-            activateStep('s6');
-            activateStep('s7');
-            showStatus('success', `🎉 Готово! Записано ${msg.written} строк → «${msg.targetSheet}»`);
-          } else {
-            showStatus('error', '❌ GAS вернул ошибку: ' + msg.error);
-          }
-          window.removeEventListener('message', ack);
-          sendBtn.disabled = false;
+        if (msg.type !== 'XLSX_PARSER_ACK') return;
+        window.removeEventListener('message', ack);
+        sendBtn.disabled = false;
+        if (msg.status === 'ok') {
+          showStatus('success', `Готово — записано ${msg.written} строк → «${msg.targetSheet}»`);
+        } else {
+          showStatus('error', 'Ошибка: ' + msg.error);
         }
       } catch (_) {}
     });
 
-    // Timeout fallback
     setTimeout(() => { sendBtn.disabled = false; }, 30000);
-  }
+  });
 
-  // --- Reset ---
   document.getElementById('resetBtn').addEventListener('click', () => {
     workbook = null; currentCsv = ''; currentMeta = {};
     fileInput.value = '';
-    sheetWrap.style.display = 'none';
+    dropZone.classList.remove('has-file');
+    document.getElementById('dropIcon').textContent = '📄';
+    document.getElementById('dropLabel').textContent = 'Перетащите файл или нажмите';
+    sheetRow.style.display = 'none';
     previewWrap.style.display = 'none';
-    statusEl.style.display = 'none';
     sendBtn.disabled = true;
-    document.querySelectorAll('.flow-step').forEach(s => s.classList.remove('active'));
-    document.getElementById('s1').classList.add('active');
+    hideStatus();
   });
 
-  // --- Helpers ---
   function showStatus(type, msg) {
     statusEl.className = 'status ' + type;
     statusEl.textContent = msg;
     statusEl.style.display = 'block';
   }
 
-  function activateStep(id) {
-    document.getElementById(id)?.classList.add('active');
-  }
+  function hideStatus() { statusEl.style.display = 'none'; }
 
-  // Receive ACK from Sidebar (when running standalone iframe test)
   window.addEventListener('message', e => {
     try {
       const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-      if (msg.type === 'XLSX_PARSER_PING') {
-        // Sidebar is ready
-        activateStep('s5');
-      }
+      if (msg.type === 'XLSX_PARSER_PING') { /* sidebar ready */ }
     } catch(_) {}
   });
 </script>
